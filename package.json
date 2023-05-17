@@ -1,0 +1,26 @@
+{
+  "name": "solidity",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelwilliamson/solidity.git"
+  },
+  "keywords": [
+    "solidity"
+  ],
+  "author": "Joel Williamson",
+  "license": "AGPL-3.0-only",
+  "bugs": {
+    "url": "https://github.com/joelwilliamson/solidity/issues"
+  },
+  "homepage": "https://github.com/joelwilliamson/solidity#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
+    "hardhat": "^2.14.0"
+  }
+}
