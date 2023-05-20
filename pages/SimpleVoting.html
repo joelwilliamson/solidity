@@ -1,0 +1,165 @@
+<html>
+  <head>
+    <title>Simple Voting</title>
+  </head>
+  <body>
+    <h2 id="page_title">Create a Simple Voting contract</h2>
+    <div id="error_reporting"></div>
+
+    <label>Enter the number of proposals that will be on the ballot: </label>
+    <input type="number" id="proposal_count" min="2" max="10" value="2" />
+
+    <ol id="proposals_parent"></ol>
+
+    <button id="create_contract">Create Ballot</button>
+
+    <div id="contract_management_link_parent"></div>
+
+    <script type="module">
+      console.log("Running SimpleVoting js");
+      import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.2.3/ethers.js";
+
+      async function getContractSpecification() {
+        const contractUrl = "voting/simple_voting.sol/SimpleVoting.json";
+        const request = new Request(contractUrl);
+        const response = await fetch(contractUrl);
+        const contractJson = await response.text();
+        console.debug(
+          `Got contract json (type ${typeof contractJson}): ${contractJson}`
+        );
+        return contractJson;
+      }
+
+      async function createContract(signer, contractSpec, proposals) {
+        const factory = ethers.ContractFactory.fromSolidity(
+          contractSpec,
+          signer
+        );
+        return await factory.deploy(proposals.map(ethers.encodeBytes32String));
+      }
+
+      async function getEthereumSigner() {
+        if (window.ethereum == null) {
+          console.error("Metamask not detected");
+          document.getElementById("error_reporting").innerHTML =
+            "Metamask not detected";
+        } else {
+          console.debug("Got ethereum provider");
+          // Connect to the MetaMask EIP-1193 object. This is a standard
+          // protocol that allows Ethers access to make all read-only
+          // requests through MetaMask.
+          const provider = new ethers.BrowserProvider(window.ethereum);
+
+          // It also provides an opportunity to request access to write
+          // operations, which will be performed by the private key
+          // that MetaMask manages for the user.
+          const signer = await provider.getSigner();
+
+          return signer;
+        }
+      }
+
+      function getProposals() {
+        const proposalsParentElem = document.getElementById("proposals_parent");
+        const proposalInputElems = Array.from(
+          proposalsParentElem.getElementsByTagName("input")
+        );
+        const proposalInputTexts = proposalInputElems.map((elem) => elem.value);
+        if (proposalInputTexts.find((text) => text == "") != undefined) {
+          alert("All proposals must be non-empty");
+          return [];
+        } else if (
+          proposalInputTexts.find((text) => text.length > 30) != undefined
+        ) {
+          alert(
+            `Proposal too long: ${proposalInputTexts.find(
+              (text) => text.length > 30
+            )}`
+          );
+          return [];
+        }
+
+        return proposalInputTexts;
+      }
+
+      function createContractManagementLink(contractAddress) {
+        const linkParent = document.getElementById(
+          "contract_management_link_parent"
+        );
+        const managementLink = document.createElement("a");
+        managementLink.href = `SimpleVoting_Management.html?address=${contractAddress}`;
+        managementLink.innerHTML = "Manage Ballot";
+        linkParent.appendChild(managementLink);
+      }
+
+      async function create() {
+        const proposals = getProposals();
+
+        if (proposals.length > 0) {
+          const contractJson = await getContractSpecification();
+          const signer = await getEthereumSigner();
+          const contract = await (
+            await createContract(signer, contractJson, proposals)
+          ).waitForDeployment();
+          const contractAddress = await contract.getAddress();
+          console.log(`Deployed contract with address: ${contractAddress}`);
+
+          createContractManagementLink(contractAddress);
+        }
+      }
+
+      function createProposalCountListener(
+        proposalCountElem,
+        proposalsParentElem
+      ) {
+        return (event) => {
+          const targetProposalCount = proposalCountElem.value;
+          const existingProposalCount = proposalsParentElem.childElementCount;
+          if (targetProposalCount < existingProposalCount) {
+            console.debug(
+              `Reducing proposals from ${existingProposalCount} to ${targetProposalCount}`
+            );
+            for (let i = targetProposalCount; i < existingProposalCount; i++) {
+              proposalsParentElem.removeChild(proposalsParentElem.lastChild);
+            }
+          } else if (targetProposalCount > existingProposalCount) {
+            console.debug(
+              `Increasing proposals from ${existingProposalCount} to ${targetProposalCount}`
+            );
+            for (let i = existingProposalCount; i < targetProposalCount; i++) {
+              const liElem = document.createElement("li");
+              const inputElem = document.createElement("input");
+              inputElem.id = `proposal_${i + 1}`;
+              inputElem.type = "text";
+              inputElem.value = `Proposal ${i + 1}`;
+              proposalsParentElem.appendChild(liElem);
+              liElem.appendChild(inputElem);
+            }
+          } else {
+            console.debug(
+              `Existing = ${existingProposalCount}; target = ${targetProposalCount}`
+            );
+          }
+        };
+      }
+
+      function setupListeners() {
+        const proposalCountElem = document.getElementById("proposal_count");
+        console.log(proposalCountElem.outerHTML);
+        const proposalsParentElem = document.getElementById("proposals_parent");
+        const proposalCountListener = createProposalCountListener(
+          proposalCountElem,
+          proposalsParentElem
+        );
+        proposalCountElem.addEventListener("change", proposalCountListener);
+        proposalCountListener();
+
+        document
+          .getElementById("create_contract")
+          .addEventListener("click", create);
+      }
+
+      window.addEventListener("load", setupListeners);
+    </script>
+  </body>
+</html>

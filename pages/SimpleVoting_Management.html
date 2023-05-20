@@ -1,0 +1,107 @@
+<html>
+  <head>
+    <title>Simple Voting Management</title>
+  </head>
+  <body>
+    <h2 id="page_title">Add voters to a Simple Voting contract</h2>
+    <h4 id="contract_address"></h4>
+    <div id="error_reporting"></div>
+
+    <label>Enter the address of a new voter: </label>
+    <input type="text" id="voter_address" />
+    <button id="add_voter">Add Voter</button>
+
+    <div id="vote_link_parent"></div>
+
+    <button id="get_winner">Get Winning Proposal</button>
+    <p id="winning_proposal"></p>
+
+    <script type="module">
+      console.log("Running SimpleVoting js");
+      import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.2.3/ethers.js";
+
+      async function getContractSpecification() {
+        const contractUrl = "voting/simple_voting.sol/SimpleVoting.json";
+        const request = new Request(contractUrl);
+        const response = await fetch(contractUrl);
+        const contractJson = await response.text();
+        console.debug(
+          `Got contract json (type ${typeof contractJson}): ${contractJson}`
+        );
+        return contractJson;
+      }
+
+      async function getEthereumSigner() {
+        if (window.ethereum == null) {
+          console.error("Metamask not detected");
+          document.getElementById("error_reporting").innerHTML =
+            "Metamask not detected";
+        } else {
+          console.debug("Got ethereum provider");
+          // Connect to the MetaMask EIP-1193 object. This is a standard
+          // protocol that allows Ethers access to make all read-only
+          // requests through MetaMask.
+          const provider = new ethers.BrowserProvider(window.ethereum);
+
+          // It also provides an opportunity to request access to write
+          // operations, which will be performed by the private key
+          // that MetaMask manages for the user.
+          const signer = await provider.getSigner();
+
+          return signer;
+        }
+      }
+
+      async function getContract(signer, address) {
+        const contractJson = await getContractSpecification();
+        const contract = await new ethers.BaseContract(
+          address,
+          JSON.parse(contractJson).abi
+        ).connect(signer);
+        return contract;
+      }
+
+      function setupListeners() {
+        const contractAddress = new URL(document.baseURI).searchParams.get(
+          "address"
+        );
+        console.debug(`Contract address: ${contractAddress}`);
+        const addVoterButton = document.getElementById("add_voter");
+        const voterAddressElem = document.getElementById("voter_address");
+        const voteLinkParentElem = document.getElementById("vote_link_parent");
+        const getWinnerElem = document.getElementById("get_winner");
+        const winnerDisplayElem = document.getElementById("winning_proposal");
+        addVoterButton.addEventListener("click", async (event) => {
+          voteLinkParentElem.textContent = "";
+          const contract = await getContract(
+            await getEthereumSigner(),
+            contractAddress
+          );
+          await contract.addVoter(voterAddressElem.value);
+
+          const voteLinkElem = document.createElement("a");
+          voteLinkElem.href = `SimpleVoting_Voting.html?address=${contractAddress}`;
+          voteLinkElem.innerHTML = "Send this link to allow the voter to vote";
+
+          voteLinkParentElem.appendChild(voteLinkElem);
+        });
+
+        getWinnerElem.addEventListener("click", async (event) => {
+          const contract = await getContract(
+            await getEthereumSigner(),
+            contractAddress
+          );
+          const winningProposalEncoded = await contract.winningProposal();
+          const winningProposal = ethers.decodeBytes32String(
+            winningProposalEncoded
+          );
+          winnerDisplayElem.innerHTML = winningProposal;
+        });
+
+        document.getElementById("contract_address").innerHTML = contractAddress;
+      }
+
+      window.addEventListener("load", setupListeners);
+    </script>
+  </body>
+</html>

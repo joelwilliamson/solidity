@@ -1,0 +1,120 @@
+<html>
+  <head>
+    <title>Simple Vote Submission</title>
+  </head>
+  <body>
+    <h2 id="page_title">Delegate your vote(s) to another voter:</h2>
+    <h4 id="contract_address"></h4>
+
+    <label>Enter the address of a new voter: </label>
+    <input type="text" id="voter_address" />
+    <button id="delegate">Delegate</button>
+
+    <fieldset id="vote_fieldset">
+      <legend>Select a proposal to vote for:</legend>
+    </fieldset>
+    <button id="vote">Vote</button>
+
+    <script type="module">
+      console.log("Running SimpleVoting js");
+      import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.2.3/ethers.js";
+
+      async function getContractSpecification() {
+        const contractUrl = "voting/simple_voting.sol/SimpleVoting.json";
+        const request = new Request(contractUrl);
+        const response = await fetch(contractUrl);
+        const contractJson = await response.text();
+        console.debug(
+          `Got contract json (type ${typeof contractJson}): ${contractJson}`
+        );
+        return contractJson;
+      }
+
+      async function getEthereumSigner() {
+        if (window.ethereum == null) {
+          console.error("Metamask not detected");
+          document.getElementById("error_reporting").innerHTML =
+            "Metamask not detected";
+        } else {
+          console.debug("Got ethereum provider");
+          // Connect to the MetaMask EIP-1193 object. This is a standard
+          // protocol that allows Ethers access to make all read-only
+          // requests through MetaMask.
+          const provider = new ethers.BrowserProvider(window.ethereum);
+
+          // It also provides an opportunity to request access to write
+          // operations, which will be performed by the private key
+          // that MetaMask manages for the user.
+          const signer = await provider.getSigner();
+
+          return signer;
+        }
+      }
+
+      async function getContract(signer, address) {
+        const contractJson = await getContractSpecification();
+        const contract = await new ethers.BaseContract(
+          address,
+          JSON.parse(contractJson).abi
+        ).connect(signer);
+        return contract;
+      }
+
+      async function setupProposals(contractAddress) {
+        const contract = await getContract(
+          await getEthereumSigner(),
+          contractAddress
+        );
+
+        const rawProposals = await contract.getProposals();
+        const names = rawProposals.map((prop) =>
+          ethers.decodeBytes32String(prop.name)
+        );
+        const fieldset = document.getElementById("vote_fieldset");
+
+        for (const name of names) {
+          const divElem = document.createElement("div");
+          const inputElem = document.createElement("input");
+          const labelElem = document.createElement("label");
+          divElem.className = "vote_container";
+          labelElem.innerHTML = name;
+          inputElem.type = "radio";
+          inputElem.value = name;
+          inputElem.name = "votes";
+          divElem.appendChild(inputElem);
+          divElem.appendChild(labelElem);
+          fieldset.appendChild(divElem);
+        }
+
+        document
+          .getElementById("vote")
+          .addEventListener("click", async (event) => {
+            // Find the index of the proposal to submit
+            const voteContainers =
+              fieldset.getElementsByClassName("vote_container");
+            for (let i = 0; i < voteContainers.length; i++) {
+              const voteContainer = voteContainers[i];
+              if (voteContainer.getElementsByTagName("input")[0].checked) {
+                console.log(`Voting for ${i}`);
+                await contract.vote(i);
+                alert("Vote registered");
+              }
+            }
+          });
+      }
+
+      function setupListeners() {
+        const contractAddress = new URL(document.baseURI).searchParams.get(
+          "address"
+        );
+        console.debug(`Contract address: ${contractAddress}`);
+
+        setupProposals(contractAddress);
+
+        document.getElementById("contract_address").innerHTML = contractAddress;
+      }
+
+      window.addEventListener("load", setupListeners);
+    </script>
+  </body>
+</html>

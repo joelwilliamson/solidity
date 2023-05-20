@@ -119,7 +119,8 @@ contract SimpleVoting {
 
         return bestProposal.name;
     }
-}
 
-// Test args: ["prop1", "prop2", "prop3"]
-// Encoded: ["0x00000000000000000000000000000000000000000000000000000070726f7031", "0x00000000000000000000000000000000000000000000000000000070726f7032", "0x00000000000000000000000000000000000000000000000000000070726f7033"]
+    function getProposals() public view returns (Proposal[] memory) {
+        return proposals;
+    }
+}

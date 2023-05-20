@@ -6,7 +6,7 @@
 // global scope, and execute the script.
 const hre = require("hardhat");
 
-async function main() {
+async function deployLock() {
   const currentTimestampInSeconds = Math.round(Date.now() / 1000);
   const unlockTime = currentTimestampInSeconds + 60;
 
@@ -22,6 +22,28 @@ async function main() {
       lockedAmount
     )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
   );
+}
+
+async function deploySimpleVoting() {
+  const proposals = ["prop1", "prop2", "prop3", "prop4"].map(
+    ethers.utils.formatBytes32String
+  );
+  const votingFactory = await hre.ethers.getContractFactory("SimpleVoting");
+  const votingContract = await votingFactory.deploy(proposals);
+
+  await votingContract.deployed();
+
+  console.log("Deployed SimpleVoting contract");
+}
+
+async function main() {
+  console.log(
+    `ChainId: ${JSON.stringify(
+      await hre.ethers.getDefaultProvider().getNetwork()
+    )}`
+  );
+
+  await Promise.all([deployLock(), deploySimpleVoting()]);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

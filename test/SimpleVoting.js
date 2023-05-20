@@ -7,9 +7,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("SimpleVoting", function () {
-  const proposals = ["prop1", "prop2", "prop3", "prop4"].map(
-    ethers.utils.formatBytes32String
-  );
+  const proposalNames = ["prop1", "prop2", "prop3", "prop4"];
+  const proposals = proposalNames.map(ethers.utils.formatBytes32String);
 
   async function deploySimpleVoting() {
     const voters = await ethers.getSigners();
@@ -62,6 +61,15 @@ describe("SimpleVoting", function () {
       ).to.be.revertedWith("Sender is not chairman");
       await expect(ballot.connect(chairman).addVoter(otherAddress.address)).to
         .be.ok;
+    });
+
+    it("All proposals should be added to the contract", async function () {
+      const { ballot } = await loadFixture(deploySimpleVoting);
+      const rawProposals = await ballot.getProposals();
+      const names = rawProposals.map((prop) =>
+        ethers.utils.parseBytes32String(prop.name)
+      );
+      expect(names).to.eql(proposalNames);
     });
 
     it("Voters cannot be added twice", async function () {
